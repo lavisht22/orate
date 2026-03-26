@@ -6,6 +6,7 @@
 //
 
 import AppKit
+import Combine
 import SwiftUI
 
 @main
@@ -25,8 +26,11 @@ struct orateApp: App {
         }
 
         MenuBarExtra("Orate", systemImage: "waveform") {
-            Button("Open Orate") {
+            Button("Home") {
                 openWindow(id: "main")
+            }
+            Button("Paste Last Transcription (⌃⌘V)") {
+                appDelegate.pasteLastTranscription()
             }
             Divider()
             Button("Quit") {
@@ -36,9 +40,10 @@ struct orateApp: App {
     }
 }
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     let overlayPanel = OverlayPanel()
     let audioRecorder = AudioRecorder()
+    @Published var lastTranscription: String?
     private var globalFlagMonitor: Any?
     private var localFlagMonitor: Any?
     private var globalKeyMonitor: Any?
@@ -63,6 +68,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Right Option key code — will be user-configurable in the future
     private let pushToTalkKeyCode: UInt16 = 61
 
+    func pasteLastTranscription() {
+        guard let text = lastTranscription else { return }
+        TextInserter.insertText(text)
+    }
+
     private func startMonitoringHotkey() {
         localFlagMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
             self?.handleFlagsChanged(event)
@@ -75,11 +85,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         localKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             if self?.handleCancelKey(event) == true { return nil }
+            if self?.handlePasteLastKey(event) == true { return nil }
             return event
         }
 
         globalKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
             self?.handleCancelKey(event)
+            self?.handlePasteLastKey(event)
         }
     }
 
@@ -87,6 +99,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func handleCancelKey(_ event: NSEvent) -> Bool {
         guard event.keyCode == 53, overlayPanel.isTranscribing else { return false }
         cancelTranscription()
+        return true
+    }
+
+    // Ctrl+Cmd+V (keyCode 0x09 = V)
+    @discardableResult
+    private func handlePasteLastKey(_ event: NSEvent) -> Bool {
+        guard event.keyCode == 0x09,
+              event.modifierFlags.contains([.control, .command]),
+              lastTranscription != nil else { return false }
+        pasteLastTranscription()
         return true
     }
 
@@ -122,6 +144,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             do {
                 let result = try await TranscriptionService.transcribe(audioData: audioData)
                 try Task.checkCancellation()
+                self.lastTranscription = result.transcript
                 TextInserter.insertText(result.transcript)
                 print("Transcription inserted (\(result.latencyMs)ms): \(result.transcript)")
 
