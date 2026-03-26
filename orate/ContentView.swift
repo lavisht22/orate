@@ -11,6 +11,8 @@ import SwiftUI
 enum SidebarItem: String, CaseIterable, Identifiable {
     case home = "Home"
     case instructions = "Instructions"
+    case vocabulary = "Vocabulary"
+    case settings = "Settings"
 
     var id: String { rawValue }
 
@@ -18,6 +20,8 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         switch self {
         case .home: "house"
         case .instructions: "text.quote"
+        case .vocabulary: "character.book.closed"
+        case .settings: "gearshape"
         }
     }
 }
@@ -38,6 +42,10 @@ struct ContentView: View {
                 HomeView()
             case .instructions:
                 CustomInstructionsView()
+            case .vocabulary:
+                VocabularyView()
+            case .settings:
+                SettingsView()
             case nil:
                 Text("Select an item")
                     .foregroundStyle(.secondary)

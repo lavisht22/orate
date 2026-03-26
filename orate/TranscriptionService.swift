@@ -15,8 +15,9 @@ struct TranscriptionResult {
 }
 
 struct TranscriptionService {
-    // TODO: Make configurable
-    private static let apiKey = "AIzaSyD0QI6k-PzuTGFzx1_defFRVMLqq2OYuIw"
+    static var apiKey: String? {
+        KeychainHelper.read(key: "geminiAPIKey")
+    }
     static let model = "gemini-3.1-flash-lite-preview"
     private static let systemPrompt = """
         You are Orate, an intelligent speech-to-text assistant. Your job is to transcribe spoken audio and produce clean, polished text ready to be inserted directly into whatever the user is typing.
@@ -28,7 +29,7 @@ struct TranscriptionService {
         - Do NOT add any preamble, commentary, labels, or formatting beyond the transcription itself. Output ONLY the final clean text.
         - Do NOT wrap the output in quotes or add "Transcription:" or similar prefixes.
         - If the speaker dictates punctuation explicitly (e.g. says "period", "comma", "new line", "question mark"), convert those to the actual punctuation characters.
-        - If the audio is unclear or empty, output nothing (empty string). Do not guess or hallucinate content.
+        - CRITICAL: If the audio contains no spoken words (silence, background noise, breathing, typing, or other non-speech sounds), you MUST output an empty string. Do not generate any text whatsoever — not even from vocabulary hints or custom instructions. Only transcribe actual spoken words.
         - Preserve the speaker's tone and intent: if they are writing a casual message, keep it casual. If formal, keep it formal.
         - For numbers, use digits for quantities and measurements (e.g. "5 minutes", "200 users") and words for conversational usage (e.g. "a couple of things").
         - If the speaker is dictating a list (e.g. "first... second... third..." or "number one... number two..." or "bullet point..."), format the output as a properly structured list with line breaks and markers (1. 2. 3. or - bullets) as appropriate.
@@ -38,8 +39,20 @@ struct TranscriptionService {
         UserDefaults.standard.string(forKey: "customInstructions")
     }
 
+    private static var vocabularyWords: [String] {
+        UserDefaults.standard.stringArray(forKey: "vocabularyWords") ?? []
+    }
+
     private static func buildSystemInstruction() -> String {
         var prompt = systemPrompt
+
+        let vocab = vocabularyWords
+        if !vocab.isEmpty {
+            prompt += "\n\nVocabulary — the user has registered these custom words. When you hear something that sounds like one of these words, use the exact spelling provided here:\n"
+            prompt += vocab.map { "- \($0)" }.joined(separator: "\n")
+            prompt += "\nIMPORTANT: These vocabulary words are spelling hints ONLY. Do not use them to generate or infer content. If no speech is present in the audio, output an empty string regardless of these words."
+        }
+
         if let custom = customInstructions, !custom.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             prompt += "\n\nUser's custom instructions:\n\(custom)"
         }
@@ -47,6 +60,10 @@ struct TranscriptionService {
     }
 
     static func transcribe(audioData: Data) async throws -> TranscriptionResult {
+        guard let apiKey, !apiKey.isEmpty else {
+            throw TranscriptionError.missingAPIKey
+        }
+
         let base64Audio = audioData.base64EncodedString()
 
         let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(apiKey)")!
@@ -128,11 +145,13 @@ struct TranscriptionService {
     }
 
     enum TranscriptionError: Error, LocalizedError {
+        case missingAPIKey
         case apiError(statusCode: Int, message: String)
         case parseError
 
         var errorDescription: String? {
             switch self {
+            case .missingAPIKey: "No API key configured. Open Settings to add your Gemini API key."
             case .apiError(let code, let message): "Gemini API error (\(code)): \(message)"
             case .parseError: "Failed to parse transcription response"
             }
