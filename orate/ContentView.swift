@@ -10,12 +10,14 @@ import SwiftUI
 
 enum SidebarItem: String, CaseIterable, Identifiable {
     case home = "Home"
+    case instructions = "Instructions"
 
     var id: String { rawValue }
 
     var icon: String {
         switch self {
         case .home: "house"
+        case .instructions: "text.quote"
         }
     }
 }
@@ -34,6 +36,8 @@ struct ContentView: View {
             switch selection {
             case .home:
                 HomeView()
+            case .instructions:
+                CustomInstructionsView()
             case nil:
                 Text("Select an item")
                     .foregroundStyle(.secondary)

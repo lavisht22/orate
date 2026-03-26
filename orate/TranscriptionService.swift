@@ -18,7 +18,33 @@ struct TranscriptionService {
     // TODO: Make configurable
     private static let apiKey = "AIzaSyD0QI6k-PzuTGFzx1_defFRVMLqq2OYuIw"
     static let model = "gemini-3.1-flash-lite-preview"
-    private static let prompt = "Transcribe this audio exactly as spoken. Output only the transcription text, nothing else."
+    private static let systemPrompt = """
+        You are Orate, an intelligent speech-to-text assistant. Your job is to transcribe spoken audio and produce clean, polished text ready to be inserted directly into whatever the user is typing.
+
+        Core rules:
+        - Transcribe the spoken content accurately, preserving the speaker's intended meaning.
+        - Clean up speech disfluencies: remove filler words (um, uh, like, you know), false starts, and repeated words — unless they are clearly intentional for emphasis.
+        - Fix grammar and punctuation naturally. Add proper capitalization, periods, commas, and other punctuation as appropriate for written text.
+        - Do NOT add any preamble, commentary, labels, or formatting beyond the transcription itself. Output ONLY the final clean text.
+        - Do NOT wrap the output in quotes or add "Transcription:" or similar prefixes.
+        - If the speaker dictates punctuation explicitly (e.g. says "period", "comma", "new line", "question mark"), convert those to the actual punctuation characters.
+        - If the audio is unclear or empty, output nothing (empty string). Do not guess or hallucinate content.
+        - Preserve the speaker's tone and intent: if they are writing a casual message, keep it casual. If formal, keep it formal.
+        - For numbers, use digits for quantities and measurements (e.g. "5 minutes", "200 users") and words for conversational usage (e.g. "a couple of things").
+        - If the speaker is dictating a list (e.g. "first... second... third..." or "number one... number two..." or "bullet point..."), format the output as a properly structured list with line breaks and markers (1. 2. 3. or - bullets) as appropriate.
+        """
+
+    private static var customInstructions: String? {
+        UserDefaults.standard.string(forKey: "customInstructions")
+    }
+
+    private static func buildSystemInstruction() -> String {
+        var prompt = systemPrompt
+        if let custom = customInstructions, !custom.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            prompt += "\n\nUser's custom instructions:\n\(custom)"
+        }
+        return prompt
+    }
 
     static func transcribe(audioData: Data) async throws -> TranscriptionResult {
         let base64Audio = audioData.base64EncodedString()
@@ -30,9 +56,13 @@ struct TranscriptionService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let body: [String: Any] = [
+            "system_instruction": [
+                "parts": [
+                    ["text": buildSystemInstruction()]
+                ]
+            ],
             "contents": [[
                 "parts": [
-                    ["text": prompt],
                     ["inline_data": [
                         "mime_type": "audio/flac",
                         "data": base64Audio,
