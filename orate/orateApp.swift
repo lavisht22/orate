@@ -5,6 +5,7 @@
 //  Created by Lavish Thakkar on 26/03/26.
 //
 
+import AppKit
 import SwiftUI
 
 @main
@@ -37,6 +38,7 @@ struct orateApp: App {
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     let overlayPanel = OverlayPanel()
+    let audioRecorder = AudioRecorder()
     private var globalFlagMonitor: Any?
     private var localFlagMonitor: Any?
 
@@ -68,6 +70,34 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func handleFlagsChanged(_ event: NSEvent) {
         guard event.keyCode == pushToTalkKeyCode else { return }
         let pressed = event.modifierFlags.contains(.option)
-        overlayPanel.setListening(pressed)
+
+        if pressed {
+            overlayPanel.setListening(true)
+            audioRecorder.startRecording()
+        } else {
+            overlayPanel.setListening(false)
+            finishRecording()
+        }
+    }
+
+    private func finishRecording() {
+        guard let audioData = audioRecorder.stopRecording() else {
+            print("No audio data captured")
+            return
+        }
+
+        overlayPanel.setTranscribing(true)
+
+        Task {
+            do {
+                let transcription = try await TranscriptionService.transcribe(audioData: audioData)
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(transcription, forType: .string)
+                print("Transcription copied to clipboard: \(transcription)")
+            } catch {
+                print("Transcription failed: \(error)")
+            }
+            overlayPanel.setTranscribing(false)
+        }
     }
 }

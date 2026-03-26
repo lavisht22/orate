@@ -16,8 +16,10 @@ class OverlayPanel {
     private let pillHeight: CGFloat = 24
     private let idleWidth: CGFloat = 70
     private let listeningWidth: CGFloat = 90
+    private let transcribingWidth: CGFloat = 110
 
     private(set) var isListening = false
+    private(set) var isTranscribing = false
 
     func show() {
         guard panel == nil else { return }
@@ -67,21 +69,36 @@ class OverlayPanel {
         guard listening != isListening else { return }
         isListening = listening
 
-        let newWidth = listening ? listeningWidth : idleWidth
-        let newLabel = listening ? "Listening" : "Orate"
-        let dotColor: NSColor = listening ? .green : .red
+        if listening {
+            updatePill(width: listeningWidth, label: "Listening", dotColor: .green)
+        } else if !isTranscribing {
+            updatePill(width: idleWidth, label: "Orate", dotColor: .red)
+        }
+    }
 
-        labelField?.stringValue = newLabel
+    func setTranscribing(_ transcribing: Bool) {
+        guard transcribing != isTranscribing else { return }
+        isTranscribing = transcribing
+
+        if transcribing {
+            updatePill(width: transcribingWidth, label: "Transcribing", dotColor: .yellow)
+        } else {
+            updatePill(width: idleWidth, label: "Orate", dotColor: .red)
+        }
+    }
+
+    private func updatePill(width: CGFloat, label: String, dotColor: NSColor) {
+        labelField?.stringValue = label
         labelField?.sizeToFit()
         dotView?.layer?.backgroundColor = dotColor.cgColor
 
-        pillView?.frame.size.width = newWidth
+        pillView?.frame.size.width = width
 
         guard let panel = panel else { return }
         var frame = panel.frame
         let oldWidth = frame.size.width
-        frame.size.width = newWidth
-        frame.origin.x += oldWidth - newWidth
+        frame.size.width = width
+        frame.origin.x += oldWidth - width
         panel.setFrame(frame, display: true)
     }
 
