@@ -14,7 +14,7 @@ class OverlayPanel {
     private var waveformBars: [CALayer] = []
     private var loadingDots: [CALayer] = []
 
-    private let idlePillHeight: CGFloat = 14
+    private let idlePillHeight: CGFloat = 10
     private let activePillHeight: CGFloat = 24
 
     private(set) var isListening = false
@@ -185,11 +185,10 @@ class OverlayPanel {
 
     private func positionPanel(_ panel: NSPanel, size: NSSize) {
         guard let screen = NSScreen.main else { return }
-        let screenFrame = screen.frame
-        let menuBarHeight = screenFrame.maxY - screen.visibleFrame.maxY
+        let visibleFrame = screen.visibleFrame
 
-        let x = screenFrame.maxX - size.width - 12
-        let y = screenFrame.maxY - menuBarHeight - size.height - 8
+        let x = visibleFrame.midX - size.width / 2
+        let y = visibleFrame.origin.y + 8
 
         panel.setFrame(NSRect(x: x, y: y, width: size.width, height: size.height), display: true)
     }
