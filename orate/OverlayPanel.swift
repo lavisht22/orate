@@ -19,6 +19,7 @@ class OverlayPanel {
 
     private(set) var isListening = false
     private(set) var isTranscribing = false
+    private var errorDismissWork: DispatchWorkItem?
 
     func show() {
         guard panel == nil else { return }
@@ -70,6 +71,19 @@ class OverlayPanel {
         } else {
             showIdle()
         }
+    }
+
+    func showError() {
+        errorDismissWork?.cancel()
+        isTranscribing = false
+        isListening = false
+        showErrorState()
+
+        let work = DispatchWorkItem { [weak self] in
+            self?.showIdle()
+        }
+        errorDismissWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0, execute: work)
     }
 
     // MARK: - States
@@ -160,6 +174,32 @@ class OverlayPanel {
         }
     }
 
+    private func showErrorState() {
+        clearContent()
+
+        let h = activePillHeight
+        let font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+        let label = "Error"
+        let textWidth = (label as NSString).size(withAttributes: [.font: font]).width
+        let pillWidth = ceil(textWidth) + 24
+
+        resizePill(to: NSSize(width: pillWidth, height: h), cornerRadius: h / 2, color: NSColor(red: 0.85, green: 0.15, blue: 0.15, alpha: 0.9))
+
+        guard let layer = pillView?.layer else { return }
+
+        let textLayer = CATextLayer()
+        textLayer.string = label
+        textLayer.font = font
+        textLayer.fontSize = 11
+        textLayer.foregroundColor = NSColor.white.cgColor
+        textLayer.alignmentMode = .center
+        textLayer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2.0
+        let textHeight: CGFloat = 14
+        textLayer.frame = CGRect(x: 12, y: (h - textHeight) / 2, width: ceil(textWidth), height: textHeight)
+        layer.addSublayer(textLayer)
+        waveformBars.append(textLayer)
+    }
+
     // MARK: - Helpers
 
     private func waveformScale(for index: Int, of count: Int) -> CGFloat {
@@ -176,10 +216,14 @@ class OverlayPanel {
     }
 
     private func resizePill(to size: NSSize, cornerRadius: CGFloat, bgAlpha: CGFloat) {
+        resizePill(to: size, cornerRadius: cornerRadius, color: NSColor.black.withAlphaComponent(bgAlpha))
+    }
+
+    private func resizePill(to size: NSSize, cornerRadius: CGFloat, color: NSColor) {
         guard let panel = panel, let pillView = pillView else { return }
         pillView.frame.size = size
         pillView.layer?.cornerRadius = cornerRadius
-        pillView.layer?.backgroundColor = NSColor.black.withAlphaComponent(bgAlpha).cgColor
+        pillView.layer?.backgroundColor = color.cgColor
         positionPanel(panel, size: size)
     }
 

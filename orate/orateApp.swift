@@ -155,6 +155,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
                 // Cancelled by user — already handled in cancelTranscription()
             } catch {
                 print("Transcription failed: \(error)")
+                overlayPanel.showError()
+                transcriptionTask = nil
+                return
             }
             if !Task.isCancelled {
                 overlayPanel.setTranscribing(false)
