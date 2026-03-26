@@ -32,9 +32,27 @@ struct ModalityTokenCount: Codable {
 }
 
 struct RecordingStore {
-    private static var recordingsDirectory: URL {
+    static var recordingsDirectory: URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         return appSupport.appendingPathComponent("orate/recordings")
+    }
+
+    static func loadAll() -> [RecordingMetadata] {
+        let dir = recordingsDirectory
+        guard let files = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else {
+            return []
+        }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        return files
+            .filter { $0.pathExtension == "json" }
+            .compactMap { url in
+                guard let data = try? Data(contentsOf: url) else { return nil }
+                return try? decoder.decode(RecordingMetadata.self, from: data)
+            }
+            .sorted { $0.timestamp > $1.timestamp }
     }
 
     static func save(audioData: Data, result: TranscriptionResult) throws {

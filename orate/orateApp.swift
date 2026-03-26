@@ -17,6 +17,7 @@ struct orateApp: App {
     var body: some Scene {
         WindowGroup(id: "main") {
             ContentView()
+                .frame(minWidth: 700, minHeight: 500)
                 .onAppear {
                     NSApplication.shared.setActivationPolicy(.regular)
                 }
@@ -24,6 +25,7 @@ struct orateApp: App {
                     NSApplication.shared.setActivationPolicy(.accessory)
                 }
         }
+        .defaultSize(width: 900, height: 650)
 
         MenuBarExtra("Orate", systemImage: "waveform") {
             Button("Home") {
