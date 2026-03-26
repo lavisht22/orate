@@ -27,7 +27,7 @@ struct TranscriptionService {
                 "parts": [
                     ["text": prompt],
                     ["inline_data": [
-                        "mime_type": "audio/wav",
+                        "mime_type": "audio/flac",
                         "data": base64Audio,
                     ]],
                 ]

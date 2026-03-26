@@ -9,7 +9,7 @@ import AVFoundation
 
 class AudioRecorder: NSObject, AVAudioRecorderDelegate {
     private var recorder: AVAudioRecorder?
-    private let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("orate_recording.wav")
+    private let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("orate_recording.flac")
 
     func startRecording() {
         AVCaptureDevice.requestAccess(for: .audio) { [weak self] granted in
@@ -27,12 +27,9 @@ class AudioRecorder: NSObject, AVAudioRecorderDelegate {
         try? FileManager.default.removeItem(at: tempURL)
 
         let settings: [String: Any] = [
-            AVFormatIDKey: Int(kAudioFormatLinearPCM),
+            AVFormatIDKey: Int(kAudioFormatFLAC),
             AVSampleRateKey: 16000,
             AVNumberOfChannelsKey: 1,
-            AVLinearPCMBitDepthKey: 16,
-            AVLinearPCMIsFloatKey: false,
-            AVLinearPCMIsBigEndianKey: false,
         ]
 
         do {
