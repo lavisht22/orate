@@ -13,9 +13,12 @@ class OverlayPanel {
     private var pillView: NSView?
     private var waveformBars: [CALayer] = []
     private var loadingDots: [CALayer] = []
+    private var smoothedBarHeights: [CGFloat] = []
+    private var waveformPhase: Double = 0
 
     private let idlePillHeight: CGFloat = 10
-    private let activePillHeight: CGFloat = 24
+    private let activePillHeight: CGFloat = 34
+    private let waveformBarCount = 11
 
     private(set) var isListening = false
     private(set) var isTranscribing = false
@@ -94,25 +97,61 @@ class OverlayPanel {
         resizePill(to: size, cornerRadius: idlePillHeight / 2, bgAlpha: 0.5)
     }
 
+    func updateLevel(_ level: CGFloat) {
+        guard isListening, !waveformBars.isEmpty else { return }
+
+        let boosted = pow(level, 0.4)
+        waveformPhase += 0.15
+
+        let minH: CGFloat = 3
+        let maxH: CGFloat = activePillHeight - 6
+        let smoothing: CGFloat = 0.2 // lower = smoother/slower
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        for i in 0..<waveformBars.count {
+            let center = CGFloat(waveformBars.count - 1) / 2.0
+            let distFromCenter = abs(CGFloat(i) - center) / center // 0 at center, 1 at edges
+
+            // Sine wave variation: each bar has a different phase offset
+            let sine = CGFloat(sin(waveformPhase + Double(i) * 0.8))
+            let variation = 0.7 + 0.3 * sine // oscillates 0.7…1.0
+
+            // Center bars taller, edge bars shorter
+            let shape = 1.0 - distFromCenter * 0.4
+
+            let target = min(boosted * variation * shape, 1.0)
+            let targetH = minH + (maxH - minH) * target
+
+            // Exponential smoothing for gliding transitions
+            let prev = smoothedBarHeights[i]
+            let smoothed = prev + (targetH - prev) * smoothing
+            smoothedBarHeights[i] = smoothed
+
+            waveformBars[i].bounds.size.height = smoothed
+        }
+        CATransaction.commit()
+    }
+
     private func showWaveform() {
         clearContent()
+        smoothedBarHeights = Array(repeating: 3, count: waveformBarCount)
+        waveformPhase = 0
 
-        let barCount = 5
-        let barWidth: CGFloat = 3
-        let barGap: CGFloat = 3
+        let barWidth: CGFloat = 2.5
+        let barGap: CGFloat = 2
         let h = activePillHeight
-        let barsWidth = CGFloat(barCount) * barWidth + CGFloat(barCount - 1) * barGap
-        let pillWidth = barsWidth + 24
+        let barsWidth = CGFloat(waveformBarCount) * barWidth + CGFloat(waveformBarCount - 1) * barGap
+        let pillWidth = barsWidth + 20
 
         resizePill(to: NSSize(width: pillWidth, height: h), cornerRadius: h / 2, bgAlpha: 0.75)
 
         guard let layer = pillView?.layer else { return }
 
         let startX = (pillWidth - barsWidth) / 2
-        let minH: CGFloat = 4
-        let maxH: CGFloat = h - 8
+        let minH: CGFloat = 3
 
-        for i in 0..<barCount {
+        for i in 0..<waveformBarCount {
             let bar = CALayer()
             let cx = startX + CGFloat(i) * (barWidth + barGap) + barWidth / 2
             bar.bounds = CGRect(x: 0, y: 0, width: barWidth, height: minH)
@@ -121,17 +160,6 @@ class OverlayPanel {
             bar.cornerRadius = barWidth / 2
             layer.addSublayer(bar)
             waveformBars.append(bar)
-
-            let targetH = maxH * waveformScale(for: i, of: barCount)
-            let anim = CABasicAnimation(keyPath: "bounds.size.height")
-            anim.fromValue = minH
-            anim.toValue = targetH
-            anim.duration = 0.35 + Double(i % 3) * 0.1
-            anim.autoreverses = true
-            anim.repeatCount = .infinity
-            anim.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            anim.beginTime = CACurrentMediaTime() + Double(i) * 0.12
-            bar.add(anim, forKey: "waveform")
         }
     }
 
@@ -201,12 +229,6 @@ class OverlayPanel {
     }
 
     // MARK: - Helpers
-
-    private func waveformScale(for index: Int, of count: Int) -> CGFloat {
-        let mid = CGFloat(count - 1) / 2.0
-        let dist = abs(CGFloat(index) - mid) / mid
-        return 1.0 - dist * 0.4
-    }
 
     private func clearContent() {
         waveformBars.forEach { $0.removeAllAnimations(); $0.removeFromSuperlayer() }

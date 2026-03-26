@@ -57,6 +57,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             self.overlayPanel.show()
             self.startMonitoringHotkey()
 
+            self.audioRecorder.onLevel = { [weak self] level in
+                self?.overlayPanel.updateLevel(level)
+            }
+
             if !TextInserter.isAccessibilityGranted {
                 TextInserter.promptForAccessibility()
             }
