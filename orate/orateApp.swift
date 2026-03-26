@@ -36,6 +36,14 @@ struct orateApp: App {
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
+    let overlayPanel = OverlayPanel()
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        DispatchQueue.main.async {
+            self.overlayPanel.show()
+        }
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return false
     }
