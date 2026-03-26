@@ -94,9 +94,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         Task {
             do {
-                let transcription = try await TranscriptionService.transcribe(audioData: audioData)
-                TextInserter.insertText(transcription)
-                print("Transcription inserted: \(transcription)")
+                let result = try await TranscriptionService.transcribe(audioData: audioData)
+                TextInserter.insertText(result.transcript)
+                print("Transcription inserted (\(result.latencyMs)ms): \(result.transcript)")
+
+                try RecordingStore.save(audioData: audioData, result: result)
             } catch {
                 print("Transcription failed: \(error)")
             }
