@@ -46,6 +46,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.async {
             self.overlayPanel.show()
             self.startMonitoringHotkey()
+
+            if !TextInserter.isAccessibilityGranted {
+                TextInserter.promptForAccessibility()
+            }
         }
     }
 
@@ -91,9 +95,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             do {
                 let transcription = try await TranscriptionService.transcribe(audioData: audioData)
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(transcription, forType: .string)
-                print("Transcription copied to clipboard: \(transcription)")
+                TextInserter.insertText(transcription)
+                print("Transcription inserted: \(transcription)")
             } catch {
                 print("Transcription failed: \(error)")
             }
