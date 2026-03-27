@@ -170,25 +170,23 @@ jobs:
           DMG_URL="https://github.com/${REPO}/releases/download/${TAG}/${APP_NAME}.dmg"
           PUB_DATE=$(date -R)
 
-          # Insert new item before </channel>
-          python3 -c "
-import sys
-item = '''    <item>
+          NEW_ITEM=$(cat <<XMLEOF
+            <item>
               <title>Version ${VERSION}</title>
               <pubDate>${PUB_DATE}</pubDate>
               <sparkle:version>${GITHUB_RUN_NUMBER}</sparkle:version>
               <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
-              <enclosure url=\"${DMG_URL}\"
-                         sparkle:edSignature=\"${SPARKLE_SIGNATURE}\"
-                         length=\"${DMG_SIZE}\"
-                         type=\"application/octet-stream\"/>
-            </item>'''
-with open('appcast.xml', 'r') as f:
-    content = f.read()
-content = content.replace('</channel>', item + '\n    </channel>')
-with open('appcast.xml', 'w') as f:
-    f.write(content)
-"
+              <enclosure url="${DMG_URL}"
+                         sparkle:edSignature="${SPARKLE_SIGNATURE}"
+                         length="${DMG_SIZE}"
+                         type="application/octet-stream"/>
+            </item>
+          XMLEOF
+          )
+
+          # Insert new item before </channel> using awk
+          awk -v item="$NEW_ITEM" '/<\/channel>/{print item}1' appcast.xml > appcast_tmp.xml
+          mv appcast_tmp.xml appcast.xml
 
       - name: Commit updated appcast
         run: |
