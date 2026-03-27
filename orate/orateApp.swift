@@ -14,16 +14,27 @@ struct orateApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @Environment(\.openWindow) private var openWindow
 
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+
     var body: some Scene {
         WindowGroup(id: "main") {
-            ContentView()
-                .frame(minWidth: 700, minHeight: 500)
-                .onAppear {
-                    NSApplication.shared.setActivationPolicy(.regular)
+            Group {
+                if hasCompletedOnboarding {
+                    ContentView()
+                        .frame(minWidth: 700, minHeight: 500)
+                } else {
+                    OnboardingView {
+                        hasCompletedOnboarding = true
+                    }
+                    .frame(minWidth: 600, minHeight: 450)
                 }
-                .onDisappear {
-                    NSApplication.shared.setActivationPolicy(.accessory)
-                }
+            }
+            .onAppear {
+                NSApplication.shared.setActivationPolicy(.regular)
+            }
+            .onDisappear {
+                NSApplication.shared.setActivationPolicy(.accessory)
+            }
         }
         .defaultSize(width: 900, height: 650)
 
@@ -61,9 +72,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
                 self?.overlayPanel.updateLevel(level)
             }
 
-            if !TextInserter.isAccessibilityGranted {
-                TextInserter.promptForAccessibility()
-            }
+            // Accessibility is now handled during onboarding
         }
     }
 
