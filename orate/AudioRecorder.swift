@@ -16,7 +16,7 @@ class AudioRecorder: NSObject, AVAudioRecorderDelegate {
     var onLevel: ((CGFloat) -> Void)?
 
     func startRecording() {
-        AVCaptureDevice.requestAccess(for: .audio) { [weak self] granted in
+        AVAudioApplication.requestRecordPermission { [weak self] granted in
             guard granted else {
                 print("Microphone permission denied")
                 return

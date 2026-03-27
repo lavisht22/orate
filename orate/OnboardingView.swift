@@ -102,7 +102,7 @@ struct OnboardingView: View {
                 Label("Microphone access granted", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
                     .font(.headline)
-            } else if AVCaptureDevice.authorizationStatus(for: .audio) == .denied {
+            } else if AVAudioApplication.shared.recordPermission == .denied {
                 Button("Open Microphone Settings") {
                     if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
                         NSWorkspace.shared.open(url)
@@ -117,7 +117,7 @@ struct OnboardingView: View {
                     .multilineTextAlignment(.center)
             } else {
                 Button("Grant Microphone Access") {
-                    AVCaptureDevice.requestAccess(for: .audio) { granted in
+                    AVAudioApplication.requestRecordPermission { granted in
                         DispatchQueue.main.async {
                             micGranted = granted
                         }
@@ -128,9 +128,9 @@ struct OnboardingView: View {
             }
         }
         .onAppear {
-            micGranted = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+            micGranted = AVAudioApplication.shared.recordPermission == .granted
             micTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-                let granted = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+                let granted = AVAudioApplication.shared.recordPermission == .granted
                 if granted != micGranted {
                     micGranted = granted
                 }
