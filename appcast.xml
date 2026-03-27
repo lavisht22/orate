@@ -14,5 +14,15 @@
                  length="1981563"
                  type="application/octet-stream"/>
     </item>
+      <item>
+      <title>Version 1.0.1</title>
+      <pubDate>Fri, 27 Mar 2026 09:31:58 +0000</pubDate>
+      <sparkle:version>8</sparkle:version>
+      <sparkle:shortVersionString>1.0.1</sparkle:shortVersionString>
+      <enclosure url="https://github.com/lavisht22/orate/releases/download/v1.0.1/Orate.dmg"
+                 sparkle:edSignature="sparkle:edSignature="jtKDnCLFBFYOBVqBrqsns9SgBK23X3p1nqE+5FNxFeFsCvMiCoBIOVP4E4rscdc4orw8Ofz+5V59KK692m+ADA==" length="1968421""
+                 length="1968421"
+                 type="application/octet-stream"/>
+    </item>
   </channel>
 </rss>
