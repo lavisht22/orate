@@ -7,6 +7,18 @@
 
 import Foundation
 
+enum AIProvider: String, CaseIterable {
+    case googleAI = "googleAI"
+    case vertexAI = "vertexAI"
+
+    var displayName: String {
+        switch self {
+        case .googleAI: "Google AI Studio"
+        case .vertexAI: "Vertex AI"
+        }
+    }
+}
+
 struct TranscriptionResult {
     let transcript: String
     let latencyMs: Int
@@ -15,9 +27,26 @@ struct TranscriptionResult {
 }
 
 struct TranscriptionService {
-    static var apiKey: String? {
-        KeychainHelper.read(key: "geminiAPIKey")
+    static var provider: AIProvider {
+        guard let raw = UserDefaults.standard.string(forKey: "aiProvider") else { return .googleAI }
+        return AIProvider(rawValue: raw) ?? .googleAI
     }
+
+    static var apiKey: String? {
+        switch provider {
+        case .googleAI: KeychainHelper.read(key: "geminiAPIKey")
+        case .vertexAI: KeychainHelper.read(key: "vertexAPIKey")
+        }
+    }
+
+    static var vertexProjectID: String? {
+        UserDefaults.standard.string(forKey: "vertexProjectID")
+    }
+
+    static var vertexRegion: String {
+        UserDefaults.standard.string(forKey: "vertexRegion") ?? "us-central1"
+    }
+
     static let model = "gemini-3.1-flash-lite-preview"
     private static let systemPrompt = """
         You are Orate, an intelligent speech-to-text assistant. Your job is to transcribe spoken audio and produce clean, polished text ready to be inserted directly into whatever the user is typing.
@@ -59,26 +88,17 @@ struct TranscriptionService {
         return prompt
     }
 
-    static func transcribe(audioData: Data) async throws -> TranscriptionResult {
-        guard let apiKey, !apiKey.isEmpty else {
-            throw TranscriptionError.missingAPIKey
-        }
-
-        let base64Audio = audioData.base64EncodedString()
-
-        let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(apiKey)")!
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    private static func buildRequest(apiKey: String, base64Audio: String) throws -> URLRequest {
+        let systemInstruction = buildSystemInstruction()
 
         let body: [String: Any] = [
             "system_instruction": [
                 "parts": [
-                    ["text": buildSystemInstruction()]
+                    ["text": systemInstruction]
                 ]
             ],
             "contents": [[
+                "role": "user",
                 "parts": [
                     ["inline_data": [
                         "mime_type": "audio/flac",
@@ -88,7 +108,37 @@ struct TranscriptionService {
             ]]
         ]
 
+        var request: URLRequest
+        switch provider {
+        case .googleAI:
+            let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(apiKey)")!
+            request = URLRequest(url: url)
+        case .vertexAI:
+            guard let projectID = vertexProjectID, !projectID.isEmpty else {
+                throw TranscriptionError.missingVertexConfig
+            }
+            let region = vertexRegion
+            let host = region == "global"
+                ? "aiplatform.googleapis.com"
+                : "\(region)-aiplatform.googleapis.com"
+            let url = URL(string: "https://\(host)/v1/projects/\(projectID)/locations/\(region)/publishers/google/models/\(model):generateContent?key=\(apiKey)")!
+            request = URLRequest(url: url)
+        }
+
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        return request
+    }
+
+    static func transcribe(audioData: Data) async throws -> TranscriptionResult {
+        guard let apiKey, !apiKey.isEmpty else {
+            throw TranscriptionError.missingAPIKey
+        }
+
+        let base64Audio = audioData.base64EncodedString()
+
+        let request = try buildRequest(apiKey: apiKey, base64Audio: base64Audio)
 
         let start = ContinuousClock.now
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -146,13 +196,15 @@ struct TranscriptionService {
 
     enum TranscriptionError: Error, LocalizedError {
         case missingAPIKey
+        case missingVertexConfig
         case apiError(statusCode: Int, message: String)
         case parseError
 
         var errorDescription: String? {
             switch self {
-            case .missingAPIKey: "No API key configured. Open Settings to add your Gemini API key."
-            case .apiError(let code, let message): "Gemini API error (\(code)): \(message)"
+            case .missingAPIKey: "No API key configured. Open Settings to add your API key."
+            case .missingVertexConfig: "Vertex AI requires a Project ID. Open Settings to configure it."
+            case .apiError(let code, let message): "API error (\(code)): \(message)"
             case .parseError: "Failed to parse transcription response"
             }
         }
