@@ -7,7 +7,7 @@ Orate is a macOS app that turns your voice into text, anywhere. Hold a key, spea
 It's not a dumb transcriber. Orate uses an LLM (Google Gemini) to intelligently clean up your speech: fixing grammar, formatting lists, handling punctuation you dictate, and generally making your spoken words read like you typed them.
 
 <p align="center">
-<a href="https://github.com/lavisht22/orate/releases/latest/download/Orate.dmg"><strong>Download Orate</strong></a>&nbsp;&nbsp;(macOS 14+)
+<a href="https://github.com/lavisht22/orate/releases/latest/download/Orate.dmg"><strong>Download Orate</strong></a>&nbsp;&nbsp;(macOS 15+)
 </p>
 
 ---
@@ -68,7 +68,7 @@ cd orate
 xcodebuild -project orate.xcodeproj -scheme orate -configuration Debug build
 ```
 
-Requires Xcode and macOS 14+. No external dependencies.
+Requires Xcode and macOS 15+. No external dependencies.
 
 ## License
 
