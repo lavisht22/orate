@@ -4,5 +4,15 @@
     <title>Orate</title>
     <description>Most recent changes with links to updates for Orate.</description>
     <language>en</language>
+      <item>
+      <title>Version 1.0.0</title>
+      <pubDate>Fri, 27 Mar 2026 09:04:54 +0000</pubDate>
+      <sparkle:version>7</sparkle:version>
+      <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
+      <enclosure url="https://github.com/lavisht22/orate/releases/download/v1.0.0/Orate.dmg"
+                 sparkle:edSignature="sparkle:edSignature="VBPLKcbVRMBdLwT6iaNX/LP+lvi/qIYmu7Yf+pK5d6Ts0H0o2blnc5+irkjzrlf5rnhsoo9P+plRjwklvWQbAA==" length="1981563""
+                 length="1981563"
+                 type="application/octet-stream"/>
+    </item>
   </channel>
 </rss>
