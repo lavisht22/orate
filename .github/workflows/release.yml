@@ -108,7 +108,22 @@ jobs:
             --apple-id "$APPLE_ID" \
             --password "$APPLE_APP_PASSWORD" \
             --team-id "$APPLE_TEAM_ID" \
-            --wait
+            --output-format json \
+            --wait | tee notarization_result.json
+
+          # If notarization failed, fetch the log before exiting
+          STATUS=$(cat notarization_result.json | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','Unknown'))")
+          SUBMISSION_ID=$(cat notarization_result.json | python3 -c "import sys,json; print(json.load(sys.stdin).get('id',''))")
+
+          if [ "$STATUS" != "Accepted" ]; then
+            echo "::error::Notarization failed with status: $STATUS"
+            echo "Fetching notarization log..."
+            xcrun notarytool log "$SUBMISSION_ID" \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_APP_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID" || true
+            exit 1
+          fi
 
           # Staple the notarization ticket
           xcrun stapler staple "$APP_NAME.app"
