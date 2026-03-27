@@ -137,8 +137,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         if pressed {
             overlayPanel.setListening(true)
             audioRecorder.startRecording()
+            SoundFeedback.shared.playStartSound()
         } else {
             overlayPanel.setListening(false)
+            SoundFeedback.shared.playStopSound()
             finishRecording()
         }
     }
@@ -164,6 +166,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
                 // Cancelled by user — already handled in cancelTranscription()
             } catch {
                 print("Transcription failed: \(error)")
+                SoundFeedback.shared.playErrorSound()
                 overlayPanel.showError()
                 transcriptionTask = nil
                 return
