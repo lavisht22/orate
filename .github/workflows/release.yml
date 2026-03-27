@@ -165,28 +165,7 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.VERSION }}
           TAG: ${{ github.ref_name }}
-        run: |
-          REPO="${GITHUB_REPOSITORY}"
-          DMG_URL="https://github.com/${REPO}/releases/download/${TAG}/${APP_NAME}.dmg"
-          PUB_DATE=$(date -R)
-
-          NEW_ITEM=$(cat <<XMLEOF
-            <item>
-              <title>Version ${VERSION}</title>
-              <pubDate>${PUB_DATE}</pubDate>
-              <sparkle:version>${GITHUB_RUN_NUMBER}</sparkle:version>
-              <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
-              <enclosure url="${DMG_URL}"
-                         sparkle:edSignature="${SPARKLE_SIGNATURE}"
-                         length="${DMG_SIZE}"
-                         type="application/octet-stream"/>
-            </item>
-          XMLEOF
-          )
-
-          # Insert new item before </channel> using awk
-          awk -v item="$NEW_ITEM" '/<\/channel>/{print item}1' appcast.xml > appcast_tmp.xml
-          mv appcast_tmp.xml appcast.xml
+        run: python3 .github/scripts/update_appcast.py
 
       - name: Commit updated appcast
         run: |
