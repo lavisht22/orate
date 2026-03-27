@@ -12,6 +12,7 @@ struct OnboardingView: View {
     @State private var accessibilityGranted = TextInserter.isAccessibilityGranted
     @State private var apiKey = ""
     @State private var showKey = false
+    @State private var micTimer: Timer?
     @State private var accessibilityTimer: Timer?
 
     var onComplete: () -> Void
@@ -101,6 +102,19 @@ struct OnboardingView: View {
                 Label("Microphone access granted", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
                     .font(.headline)
+            } else if AVCaptureDevice.authorizationStatus(for: .audio) == .denied {
+                Button("Open Microphone Settings") {
+                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+
+                Text("Microphone access was denied. Enable Orate in System Settings, then this screen will update automatically.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.center)
             } else {
                 Button("Grant Microphone Access") {
                     AVCaptureDevice.requestAccess(for: .audio) { granted in
@@ -114,13 +128,17 @@ struct OnboardingView: View {
             }
         }
         .onAppear {
-            // Check if already granted
-            switch AVCaptureDevice.authorizationStatus(for: .audio) {
-            case .authorized:
-                micGranted = true
-            default:
-                break
+            micGranted = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+            micTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+                let granted = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+                if granted != micGranted {
+                    micGranted = granted
+                }
             }
+        }
+        .onDisappear {
+            micTimer?.invalidate()
+            micTimer = nil
         }
     }
 
