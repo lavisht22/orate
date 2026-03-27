@@ -71,8 +71,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         return false
     }
 
-    // Right Option key code — will be user-configurable in the future
-    private let pushToTalkKeyCode: UInt16 = 61
+    private var pushToTalkKeyCode: UInt16 {
+        let stored = UserDefaults.standard.integer(forKey: "pushToTalkKeyCode")
+        return stored > 0 ? UInt16(stored) : 61
+    }
 
     func pasteLastTranscription() {
         guard let text = lastTranscription else { return }
@@ -126,8 +128,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     }
 
     private func handleFlagsChanged(_ event: NSEvent) {
-        guard event.keyCode == pushToTalkKeyCode else { return }
-        let pressed = event.modifierFlags.contains(.option)
+        guard !HotkeyRecorder.isRecordingHotkey else { return }
+        let keyCode = pushToTalkKeyCode
+        guard event.keyCode == keyCode else { return }
+        guard let flag = HotkeyRecorder.modifierFlag(for: keyCode) else { return }
+        let pressed = event.modifierFlags.contains(flag)
 
         if pressed {
             overlayPanel.setListening(true)
