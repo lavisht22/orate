@@ -1,0 +1,190 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  APP_NAME: Orate
+  SCHEME: orate
+  PROJECT: orate.xcodeproj
+
+jobs:
+  release:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Import Developer ID certificate
+        env:
+          CERTIFICATE_P12: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+        run: |
+          # Create a temporary keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Import the certificate
+          echo "$CERTIFICATE_P12" | base64 --decode > $RUNNER_TEMP/certificate.p12
+          security import $RUNNER_TEMP/certificate.p12 \
+            -P "$CERTIFICATE_PASSWORD" \
+            -A \
+            -t cert \
+            -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+
+          # Allow codesign to access the keychain
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Add keychain to search list
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+
+      - name: Build app
+        run: |
+          xcodebuild -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -derivedDataPath build \
+            -archivePath build/orate.xcarchive \
+            archive \
+            MARKETING_VERSION="${{ steps.version.outputs.VERSION }}" \
+            CURRENT_PROJECT_VERSION="${GITHUB_RUN_NUMBER}" \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}"
+
+      - name: Export archive
+        run: |
+          cat > build/ExportOptions.plist << 'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>developer-id</string>
+            <key>teamID</key>
+            <string>${{ secrets.APPLE_TEAM_ID }}</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>signingCertificate</key>
+            <string>Developer ID Application</string>
+          </dict>
+          </plist>
+          PLIST
+
+          xcodebuild -exportArchive \
+            -archivePath build/orate.xcarchive \
+            -exportOptionsPlist build/ExportOptions.plist \
+            -exportPath build/export
+
+      - name: Notarize app
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Create a zip for notarization
+          cd build/export
+          ditto -c -k --keepParent "$APP_NAME.app" "$APP_NAME.zip"
+
+          # Submit for notarization
+          xcrun notarytool submit "$APP_NAME.zip" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+
+          # Staple the notarization ticket
+          xcrun stapler staple "$APP_NAME.app"
+
+      - name: Create DMG
+        run: |
+          cd build/export
+
+          # Create a temporary DMG directory
+          mkdir -p dmg_contents
+          cp -R "$APP_NAME.app" dmg_contents/
+          ln -s /Applications dmg_contents/Applications
+
+          # Create DMG
+          hdiutil create -volname "$APP_NAME" \
+            -srcfolder dmg_contents \
+            -ov -format UDZO \
+            "$APP_NAME.dmg"
+
+      - name: Sign update for Sparkle
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          DMG_PATH="build/export/$APP_NAME.dmg"
+          DMG_SIZE=$(stat -f%z "$DMG_PATH")
+
+          # Download Sparkle tools
+          SPARKLE_VERSION="2.6.4"
+          curl -sL "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz" | tar xJ -C $RUNNER_TEMP
+
+          # Sign the update with EdDSA
+          SIGNATURE=$( echo "$SPARKLE_PRIVATE_KEY" | $RUNNER_TEMP/bin/sign_update "$DMG_PATH" -f - )
+
+          echo "SPARKLE_SIGNATURE=$SIGNATURE" >> "$GITHUB_ENV"
+          echo "DMG_SIZE=$DMG_SIZE" >> "$GITHUB_ENV"
+
+      - name: Update appcast.xml
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          REPO="${GITHUB_REPOSITORY}"
+          DMG_URL="https://github.com/${REPO}/releases/download/${TAG}/${APP_NAME}.dmg"
+          PUB_DATE=$(date -R)
+
+          # Build the new item XML
+          NEW_ITEM="    <item>
+              <title>Version ${VERSION}</title>
+              <pubDate>${PUB_DATE}</pubDate>
+              <sparkle:version>${GITHUB_RUN_NUMBER}</sparkle:version>
+              <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
+              <enclosure url=\"${DMG_URL}\"
+                         sparkle:edSignature=\"${SPARKLE_SIGNATURE}\"
+                         length=\"${DMG_SIZE}\"
+                         type=\"application/octet-stream\"/>
+            </item>"
+
+          # Insert new item before </channel>
+          sed -i '' "s|</channel>|${NEW_ITEM}\\
+          </channel>|" appcast.xml
+
+      - name: Commit updated appcast
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout main
+          git add appcast.xml
+          git commit -m "Update appcast for ${{ github.ref_name }}"
+          git push origin main
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            "build/export/$APP_NAME.dmg" \
+            --title "$APP_NAME ${{ steps.version.outputs.VERSION }}" \
+            --generate-notes

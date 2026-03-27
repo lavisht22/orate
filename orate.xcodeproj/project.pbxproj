@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		B10003002F753F1D0016E844 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = B10002002F753F1D0016E844 /* Sparkle */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		7408AC242F753F1D0016E844 /* orate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = orate.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B10003002F753F1D0016E844 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +70,7 @@
 			);
 			name = orate;
 			packageProductDependencies = (
+				B10002002F753F1D0016E844 /* Sparkle */,
 			);
 			productName = orate;
 			productReference = 7408AC242F753F1D0016E844 /* orate.app */;
@@ -98,6 +104,9 @@
 			productRefGroup = 7408AC252F753F1D0016E844 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
+			packageReferences = (
+				B10001002F753F1D0016E844 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			targets = (
 				7408AC232F753F1D0016E844 /* orate */,
 			);
@@ -253,11 +262,12 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 8JWPSLN4ZD;
+				DEVELOPMENT_TEAM = FNJS9377GY;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = orate/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Orate;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Orate needs microphone access to record your voice for transcription.";
@@ -288,11 +298,12 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 8JWPSLN4ZD;
+				DEVELOPMENT_TEAM = FNJS9377GY;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = orate/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Orate;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Orate needs microphone access to record your voice for transcription.";
@@ -335,6 +346,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		B10001002F753F1D0016E844 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.6.4;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B10002002F753F1D0016E844 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B10001002F753F1D0016E844 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 7408AC1C2F753F1D0016E844 /* Project object */;
 }

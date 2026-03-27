@@ -7,6 +7,7 @@
 
 import AppKit
 import Combine
+import Sparkle
 import SwiftUI
 
 @main
@@ -15,6 +16,10 @@ struct orateApp: App {
     @Environment(\.openWindow) private var openWindow
 
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+
+    private let updaterController = SPUStandardUpdaterController(
+        startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil
+    )
 
     var body: some Scene {
         WindowGroup(id: "main") {
@@ -44,6 +49,10 @@ struct orateApp: App {
             }
             Button("Paste Last Transcription (⌃⌘V)") {
                 appDelegate.pasteLastTranscription()
+            }
+            Divider()
+            Button("Check for Updates...") {
+                updaterController.checkForUpdates(nil)
             }
             Divider()
             Button("Quit") {
