@@ -22,7 +22,7 @@ struct orateApp: App {
     )
 
     var body: some Scene {
-        WindowGroup(id: "main") {
+        Window("Orate", id: "main") {
             Group {
                 if hasCompletedOnboarding {
                     ContentView()
@@ -46,6 +46,7 @@ struct orateApp: App {
         MenuBarExtra("Orate", systemImage: "waveform") {
             Button("Home") {
                 openWindow(id: "main")
+                NSApplication.shared.activate()
             }
             Button("Paste Last Transcription (⌃⌘V)") {
                 appDelegate.pasteLastTranscription()
