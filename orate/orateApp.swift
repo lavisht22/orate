@@ -176,8 +176,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             do {
                 let result = try await TranscriptionService.transcribe(audioData: audioData)
                 try Task.checkCancellation()
-                self.lastTranscription = result.transcript
-                TextInserter.insertText(result.transcript)
+                await MainActor.run {
+                    self.lastTranscription = result.transcript
+                    TextInserter.insertText(result.transcript)
+                }
                 print("Transcription inserted (\(result.latencyMs)ms): \(result.transcript)")
 
                 try RecordingStore.save(audioData: audioData, result: result)
@@ -185,15 +187,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
                 // Cancelled by user — already handled in cancelTranscription()
             } catch {
                 print("Transcription failed: \(error)")
-                SoundFeedback.shared.playErrorSound()
-                overlayPanel.showError()
-                transcriptionTask = nil
+                await MainActor.run {
+                    SoundFeedback.shared.playErrorSound()
+                    self.overlayPanel.showError()
+                }
+                self.transcriptionTask = nil
                 return
             }
             if !Task.isCancelled {
-                overlayPanel.setTranscribing(false)
+                await MainActor.run {
+                    self.overlayPanel.setTranscribing(false)
+                }
             }
-            transcriptionTask = nil
+            self.transcriptionTask = nil
         }
     }
 }
