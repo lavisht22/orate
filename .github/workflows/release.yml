@@ -12,7 +12,7 @@ env:
 
 jobs:
   release:
-    runs-on: macos-latest
+    runs-on: macos-15
     permissions:
       contents: write
 
