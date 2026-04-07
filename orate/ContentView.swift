@@ -60,6 +60,7 @@ struct HomeView: View {
     @State private var recordings: [RecordingMetadata] = []
     @State private var playingID: String?
     @State private var audioPlayer: AVAudioPlayer?
+    @State private var clearMessage: String?
 
     var body: some View {
         ScrollView {
@@ -129,11 +130,16 @@ struct HomeView: View {
                     Divider()
                     Button("All Recordings", role: .destructive) { clearRecordings(olderThan: nil) }
                 } label: {
-                    Label("Clear", systemImage: "trash")
-                        .font(.caption)
+                    Text("Clear")
                 }
-                .menuStyle(.borderlessButton)
-                .fixedSize()
+                .buttonStyle(.bordered)
+
+                if let clearMessage {
+                    Label(clearMessage, systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                        .font(.caption)
+                        .transition(.opacity)
+                }
             }
 
             ForEach(recordings, id: \.id) { recording in
@@ -143,8 +149,22 @@ struct HomeView: View {
     }
 
     private func clearRecordings(olderThan days: Int?) {
+        let countBefore = recordings.count
         RecordingStore.deleteRecordings(olderThan: days)
         recordings = RecordingStore.loadAll()
+        let deleted = countBefore - recordings.count
+
+        if deleted > 0 {
+            withAnimation { clearMessage = "\(deleted) recording\(deleted == 1 ? "" : "s") cleared" }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                withAnimation { clearMessage = nil }
+            }
+        } else {
+            withAnimation { clearMessage = "No recordings to clear" }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                withAnimation { clearMessage = nil }
+            }
+        }
     }
 
     private func recordingRow(_ recording: RecordingMetadata) -> some View {
@@ -193,7 +213,7 @@ struct HomeView: View {
                     .foregroundStyle(.secondary)
 
                 // Word count
-                Label("\(recording.transcript.split(separator: /\s+/).count) words", systemImage: "textformat.abc")
+                Label("\(recording.transcript.split(separator: /\s+/).count) words", systemImage: "number")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
