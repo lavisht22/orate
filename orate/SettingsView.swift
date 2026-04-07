@@ -86,8 +86,8 @@ class HotkeyRecorder {
 struct SettingsView: View {
     @State private var hotkeyRecorder = HotkeyRecorder()
     @State private var selectedProvider: AIProvider = {
-        guard let raw = UserDefaults.standard.string(forKey: "aiProvider") else { return .googleAI }
-        return AIProvider(rawValue: raw) ?? .googleAI
+        guard let raw = UserDefaults.standard.string(forKey: "aiProvider") else { return .orateCloud }
+        return AIProvider(rawValue: raw) ?? .orateCloud
     }()
     @State private var apiKey: String = ""
     @State private var vertexProjectID: String = ""
@@ -96,7 +96,11 @@ struct SettingsView: View {
     @State private var showKey = false
 
     private var keychainKey: String {
-        selectedProvider == .googleAI ? "geminiAPIKey" : "vertexAPIKey"
+        switch selectedProvider {
+        case .orateCloud: "orateCloudAPIKey"
+        case .googleAI: "geminiAPIKey"
+        case .vertexAI: "vertexAPIKey"
+        }
     }
 
     private static let vertexRegions = [
@@ -209,7 +213,7 @@ struct SettingsView: View {
             Text("AI Provider")
                 .font(.headline)
 
-            Text("Choose where to send your audio for transcription. Both use the same Gemini model.")
+            Text("Choose where to send your audio for transcription.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
 
@@ -242,7 +246,12 @@ struct SettingsView: View {
             Text("\(selectedProvider.displayName) API Key")
                 .font(.headline)
 
-            if selectedProvider == .googleAI {
+            switch selectedProvider {
+            case .orateCloud:
+                Text("Orate Cloud is the easiest way to get started. Enter your API key below to start transcribing.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            case .googleAI:
                 Text("Orate uses Google's Gemini API to transcribe your audio. You'll need an API key from Google AI Studio.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
@@ -251,7 +260,7 @@ struct SettingsView: View {
                     Label("Get your API key from Google AI Studio", systemImage: "arrow.up.right.square")
                         .font(.callout)
                 }
-            } else {
+            case .vertexAI:
                 Text("Use Vertex AI for transcription through your Google Cloud project. You'll need an API key from the GCP console with Vertex AI access.")
                     .font(.callout)
                     .foregroundStyle(.secondary)

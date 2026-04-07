@@ -8,11 +8,13 @@
 import Foundation
 
 enum AIProvider: String, CaseIterable {
+    case orateCloud = "orateCloud"
     case googleAI = "googleAI"
     case vertexAI = "vertexAI"
 
     var displayName: String {
         switch self {
+        case .orateCloud: "Orate Cloud"
         case .googleAI: "Google AI Studio"
         case .vertexAI: "Vertex AI"
         }
@@ -24,20 +26,24 @@ struct TranscriptionResult {
     let latencyMs: Int
     let model: String
     let usage: UsageMetadata
+    var wordsRemaining: Int?
 }
 
 struct TranscriptionService {
     static var provider: AIProvider {
-        guard let raw = UserDefaults.standard.string(forKey: "aiProvider") else { return .googleAI }
-        return AIProvider(rawValue: raw) ?? .googleAI
+        guard let raw = UserDefaults.standard.string(forKey: "aiProvider") else { return .orateCloud }
+        return AIProvider(rawValue: raw) ?? .orateCloud
     }
 
     static var apiKey: String? {
         switch provider {
+        case .orateCloud: KeychainHelper.read(key: "orateCloudAPIKey")
         case .googleAI: KeychainHelper.read(key: "geminiAPIKey")
         case .vertexAI: KeychainHelper.read(key: "vertexAPIKey")
         }
     }
+
+    private static let orateCloudBaseURL = "https://orate-api.lavisht22.workers.dev"
 
     static var vertexProjectID: String? {
         UserDefaults.standard.string(forKey: "vertexProjectID")
@@ -88,7 +94,7 @@ struct TranscriptionService {
         return prompt
     }
 
-    private static func buildRequest(apiKey: String, base64Audio: String) throws -> URLRequest {
+    private static func buildGeminiRequest(apiKey: String, base64Audio: String) throws -> URLRequest {
         let systemInstruction = buildSystemInstruction()
 
         let body: [String: Any] = [
@@ -123,6 +129,8 @@ struct TranscriptionService {
                 : "\(region)-aiplatform.googleapis.com"
             let url = URL(string: "https://\(host)/v1/projects/\(projectID)/locations/\(region)/publishers/google/models/\(model):generateContent?key=\(apiKey)")!
             request = URLRequest(url: url)
+        case .orateCloud:
+            fatalError("Use transcribeOrateCloud() for Orate Cloud provider")
         }
 
         request.httpMethod = "POST"
@@ -131,14 +139,74 @@ struct TranscriptionService {
         return request
     }
 
+    private static func transcribeOrateCloud(apiKey: String, audioData: Data) async throws -> TranscriptionResult {
+        let base64Audio = audioData.base64EncodedString()
+        let systemInstruction = buildSystemInstruction()
+
+        let body: [String: Any] = [
+            "audio": base64Audio,
+            "system_prompt": systemInstruction,
+        ]
+
+        let url = URL(string: "\(orateCloudBaseURL)/transcribe")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let start = ContinuousClock.now
+        let (data, response) = try await URLSession.shared.data(for: request)
+        let elapsed = start.duration(to: .now)
+        let latencyMs = Int(elapsed.components.seconds * 1000 + elapsed.components.attoseconds / 1_000_000_000_000_000)
+
+        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw TranscriptionError.parseError
+        }
+
+        if let error = json["error"] as? String {
+            if error == "insufficient_balance" {
+                throw TranscriptionError.insufficientBalance
+            }
+            throw TranscriptionError.apiError(statusCode: statusCode, message: error)
+        }
+
+        guard statusCode == 200, let text = json["text"] as? String else {
+            let responseBody = String(data: data, encoding: .utf8) ?? "no body"
+            throw TranscriptionError.apiError(statusCode: statusCode, message: responseBody)
+        }
+
+        let wordsUsed = json["words_used"] as? Int ?? 0
+        let wordsRemaining = json["words_remaining"] as? Int ?? 0
+
+        return TranscriptionResult(
+            transcript: text.trimmingCharacters(in: .whitespacesAndNewlines),
+            latencyMs: latencyMs,
+            model: model,
+            usage: UsageMetadata(
+                promptTokenCount: 0,
+                candidatesTokenCount: wordsUsed,
+                totalTokenCount: wordsUsed,
+                promptTokensDetails: nil,
+                candidatesTokensDetails: nil
+            ),
+            wordsRemaining: wordsRemaining
+        )
+    }
+
     static func transcribe(audioData: Data) async throws -> TranscriptionResult {
         guard let apiKey, !apiKey.isEmpty else {
             throw TranscriptionError.missingAPIKey
         }
 
-        let base64Audio = audioData.base64EncodedString()
+        if provider == .orateCloud {
+            return try await transcribeOrateCloud(apiKey: apiKey, audioData: audioData)
+        }
 
-        let request = try buildRequest(apiKey: apiKey, base64Audio: base64Audio)
+        let base64Audio = audioData.base64EncodedString()
+        let request = try buildGeminiRequest(apiKey: apiKey, base64Audio: base64Audio)
 
         let start = ContinuousClock.now
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -197,6 +265,7 @@ struct TranscriptionService {
     enum TranscriptionError: Error, LocalizedError {
         case missingAPIKey
         case missingVertexConfig
+        case insufficientBalance
         case apiError(statusCode: Int, message: String)
         case parseError
 
@@ -204,6 +273,7 @@ struct TranscriptionService {
             switch self {
             case .missingAPIKey: "No API key configured. Open Settings to add your API key."
             case .missingVertexConfig: "Vertex AI requires a Project ID. Open Settings to configure it."
+            case .insufficientBalance: "Insufficient word balance. Please recharge your Orate Cloud API key."
             case .apiError(let code, let message): "API error (\(code)): \(message)"
             case .parseError: "Failed to parse transcription response"
             }

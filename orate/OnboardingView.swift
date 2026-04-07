@@ -10,7 +10,10 @@ struct OnboardingView: View {
     @State private var currentStep = 0
     @State private var micGranted = false
     @State private var accessibilityGranted = TextInserter.isAccessibilityGranted
+    @State private var selectedProvider: AIProvider = .orateCloud
     @State private var apiKey = ""
+    @State private var vertexProjectID = ""
+    @State private var vertexRegion = "us-central1"
     @State private var showKey = false
     @State private var micTimer: Timer?
     @State private var accessibilityTimer: Timer?
@@ -184,6 +187,11 @@ struct OnboardingView: View {
         }
     }
 
+    private static let vertexRegions = [
+        "global", "us-central1", "us-east4", "us-west1",
+        "europe-west1", "europe-west4", "asia-northeast1", "asia-southeast1",
+    ]
+
     // MARK: - API Key Step
 
     private var apiKeyStep: some View {
@@ -192,19 +200,30 @@ struct OnboardingView: View {
                 .font(.system(size: 56))
                 .foregroundStyle(Color.accentColor)
 
-            Text("API Key")
+            Text("Transcription Provider")
                 .font(.largeTitle)
                 .fontWeight(.bold)
 
-            Text("Orate uses Google's Gemini API to transcribe your audio. You'll need a free API key from Google AI Studio.")
+            Text("Choose where to send your audio for transcription.")
                 .font(.title3)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
-            Link(destination: URL(string: "https://aistudio.google.com/apikey")!) {
-                Label("Get your API key from Google AI Studio", systemImage: "arrow.up.right.square")
-                    .font(.callout)
+            Picker(selection: $selectedProvider) {
+                ForEach(AIProvider.allCases, id: \.self) { provider in
+                    Text(provider.displayName).tag(provider)
+                }
+            } label: {
+                EmptyView()
             }
+            .pickerStyle(.segmented)
+            .frame(maxWidth: 400)
+            .onChange(of: selectedProvider) {
+                apiKey = ""
+                showKey = false
+            }
+
+            providerDescription
 
             HStack(spacing: 8) {
                 Group {
@@ -229,13 +248,76 @@ struct OnboardingView: View {
             }
             .frame(maxWidth: 400)
 
+            if selectedProvider == .vertexAI {
+                VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Project ID")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+
+                        TextField("your-gcp-project-id", text: $vertexProjectID)
+                            .textFieldStyle(.plain)
+                            .font(.body.monospaced())
+                            .padding(10)
+                            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Region")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+
+                        Picker("Region", selection: $vertexRegion) {
+                            ForEach(Self.vertexRegions, id: \.self) { region in
+                                Text(region).tag(region)
+                            }
+                        }
+                        .labelsHidden()
+                    }
+                }
+                .frame(maxWidth: 400)
+                .padding(12)
+                .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 8))
+            }
+
             Label("Your API key is stored securely in the macOS Keychain.", systemImage: "lock.shield")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
+        }
+    }
 
-            Label("Looking for Vertex AI? Skip this step and configure it later in Settings.", systemImage: "arrow.right.circle")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+    @ViewBuilder
+    private var providerDescription: some View {
+        switch selectedProvider {
+        case .orateCloud:
+            Text("Orate Cloud is the easiest way to get started. Enter your API key below.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        case .googleAI:
+            VStack(spacing: 8) {
+                Text("Use your own Google AI Studio API key for transcription.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+
+                Link(destination: URL(string: "https://aistudio.google.com/apikey")!) {
+                    Label("Get your API key from Google AI Studio", systemImage: "arrow.up.right.square")
+                        .font(.callout)
+                }
+            }
+        case .vertexAI:
+            VStack(spacing: 8) {
+                Text("Use Vertex AI through your Google Cloud project.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+
+                Link(destination: URL(string: "https://console.cloud.google.com/apis/credentials")!) {
+                    Label("Create an API key in Google Cloud Console", systemImage: "arrow.up.right.square")
+                        .font(.callout)
+                }
+            }
         }
     }
 
@@ -326,7 +408,8 @@ struct OnboardingView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
-                    .disabled(apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        || (selectedProvider == .vertexAI && vertexProjectID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
                 }
 
             case 4:
@@ -362,7 +445,24 @@ struct OnboardingView: View {
     private func saveAPIKey() {
         let trimmed = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        KeychainHelper.save(key: "geminiAPIKey", value: trimmed)
+
+        // Save provider choice
+        UserDefaults.standard.set(selectedProvider.rawValue, forKey: "aiProvider")
+
+        // Save API key to the correct keychain entry
+        let keychainKey: String
+        switch selectedProvider {
+        case .orateCloud: keychainKey = "orateCloudAPIKey"
+        case .googleAI: keychainKey = "geminiAPIKey"
+        case .vertexAI: keychainKey = "vertexAPIKey"
+        }
+        KeychainHelper.save(key: keychainKey, value: trimmed)
+
+        // Save Vertex AI config if applicable
+        if selectedProvider == .vertexAI {
+            UserDefaults.standard.set(vertexProjectID.trimmingCharacters(in: .whitespacesAndNewlines), forKey: "vertexProjectID")
+            UserDefaults.standard.set(vertexRegion, forKey: "vertexRegion")
+        }
     }
 
     private func completeOnboarding() {
