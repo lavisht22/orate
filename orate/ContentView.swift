@@ -115,14 +115,36 @@ struct HomeView: View {
 
     private var recordingsList: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Recent Transcriptions")
-                .font(.headline)
-                .foregroundStyle(.secondary)
+            HStack {
+                Text("Recent Transcriptions")
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                Menu {
+                    Button("Older than 7 days") { clearRecordings(olderThan: 7) }
+                    Button("Older than 14 days") { clearRecordings(olderThan: 14) }
+                    Button("Older than 30 days") { clearRecordings(olderThan: 30) }
+                    Divider()
+                    Button("All Recordings", role: .destructive) { clearRecordings(olderThan: nil) }
+                } label: {
+                    Label("Clear", systemImage: "trash")
+                        .font(.caption)
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+            }
 
             ForEach(recordings, id: \.id) { recording in
                 recordingRow(recording)
             }
         }
+    }
+
+    private func clearRecordings(olderThan days: Int?) {
+        RecordingStore.deleteRecordings(olderThan: days)
+        recordings = RecordingStore.loadAll()
     }
 
     private func recordingRow(_ recording: RecordingMetadata) -> some View {
@@ -170,15 +192,10 @@ struct HomeView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                // Tokens
-                Label("\(recording.usage.totalTokenCount) tokens", systemImage: "number")
+                // Word count
+                Label("\(recording.transcript.split(separator: /\s+/).count) words", systemImage: "textformat.abc")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-
-                // Model
-                Text(recording.model)
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
 
                 Spacer()
             }

@@ -55,6 +55,25 @@ struct RecordingStore {
             .sorted { $0.timestamp > $1.timestamp }
     }
 
+    static func deleteRecordings(olderThan days: Int?) {
+        let all = loadAll()
+        let cutoff = days.map { Calendar.current.date(byAdding: .day, value: -$0, to: Date())! }
+        let toDelete = all.filter { recording in
+            guard let cutoff else { return true }
+            return recording.timestamp < cutoff
+        }
+
+        let fm = FileManager.default
+        let dir = recordingsDirectory
+        for recording in toDelete {
+            let audioURL = dir.appendingPathComponent(recording.audioFile)
+            let jsonFile = recording.audioFile.replacingOccurrences(of: ".flac", with: ".json")
+            let jsonURL = dir.appendingPathComponent(jsonFile)
+            try? fm.removeItem(at: audioURL)
+            try? fm.removeItem(at: jsonURL)
+        }
+    }
+
     static func save(audioData: Data, result: TranscriptionResult) throws {
         let dir = recordingsDirectory
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
