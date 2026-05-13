@@ -26,6 +26,7 @@ A macOS push-to-talk voice transcription app. User holds Right Option to record,
 The repo is structured as a monorepo to make room for future platforms (iOS, Android, Windows, Linux) and an API. Each platform owns its full stack independently — no shared code package.
 
 - `macos/` — macOS app (Xcode project + Swift sources)
+- `api/` — Cloudflare Workers API (TypeScript, wrangler-deployed). Local dev needs an `api/.dev.vars` file with Vertex AI secrets; that file is gitignored and must never be committed.
 - `.github/` — workflows and scripts (must live at repo root)
 - `macos/appcast.xml` — Sparkle update feed for the macOS app. The repo-root `appcast.xml` is a **symlink** to it. Shipped copies of the app hardcode `https://raw.githubusercontent.com/lavisht22/orate/main/appcast.xml` in `Info.plist`, and GitHub's raw service follows the symlink to serve the real file, so existing installs keep getting updates. The release workflow writes through the symlink but stages `macos/appcast.xml` for commit.
 

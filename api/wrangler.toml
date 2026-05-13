@@ -1,0 +1,9 @@
+name = "orate-api"
+main = "src/index.ts"
+compatibility_date = "2025-04-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "orate-db"
+database_id = "70f23164-7f10-4b1c-ae37-47473ccb3016"
+migrations_dir = "migrations"
