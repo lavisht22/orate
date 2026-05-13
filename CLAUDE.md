@@ -8,7 +8,7 @@ macOS Swift app, Xcode only, zero external dependencies.
 
 ```bash
 # Build
-xcodebuild -project orate.xcodeproj -scheme orate -configuration Debug build
+xcodebuild -project macos/orate.xcodeproj -scheme orate -configuration Debug build
 
 # Run (after building)
 open build/Debug/orate.app
@@ -21,7 +21,15 @@ There are no tests currently.
 
 A macOS push-to-talk voice transcription app. User holds Right Option to record, releases to transcribe via Gemini API, and the result is pasted into the focused text field. It's not a dumb transcriber — it uses an LLM (Gemini) with a system prompt to intelligently clean up speech, fix grammar, format lists, handle dictated punctuation, etc. Users can customize transcription behavior via custom instructions.
 
-## File Map (all Swift files live in `orate/`)
+## Repository Layout
+
+The repo is structured as a monorepo to make room for future platforms (iOS, Android, Windows, Linux) and an API. Each platform owns its full stack independently — no shared code package.
+
+- `macos/` — macOS app (Xcode project + Swift sources)
+- `.github/` — workflows and scripts (must live at repo root)
+- `macos/appcast.xml` — Sparkle update feed for the macOS app. The repo-root `appcast.xml` is a **symlink** to it. Shipped copies of the app hardcode `https://raw.githubusercontent.com/lavisht22/orate/main/appcast.xml` in `Info.plist`, and GitHub's raw service follows the symlink to serve the real file, so existing installs keep getting updates. The release workflow writes through the symlink but stages `macos/appcast.xml` for commit.
+
+## File Map (all Swift files live in `macos/orate/`)
 
 | File | What It Does |
 |---|---|

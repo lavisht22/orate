@@ -21,7 +21,7 @@ A short screen recording is worth a thousand words for UI bugs.
 3. Make your changes
 4. Build locally:
    ```bash
-   xcodebuild -project orate.xcodeproj -scheme orate -configuration Debug build
+   xcodebuild -project macos/orate.xcodeproj -scheme orate -configuration Debug build
    ```
 5. Open a PR with a clear description of *what* you changed and *why*
 

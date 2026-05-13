@@ -100,7 +100,7 @@ Orate needs two macOS permissions to work:
 ```bash
 git clone https://github.com/lavisht22/orate.git
 cd orate
-xcodebuild -project orate.xcodeproj -scheme orate -configuration Debug build
+xcodebuild -project macos/orate.xcodeproj -scheme orate -configuration Debug build
 ```
 
 Requires Xcode. Zero external dependencies — pure AppKit + SwiftUI + AVFoundation. See [CLAUDE.md](CLAUDE.md) for an architectural map of the codebase.
