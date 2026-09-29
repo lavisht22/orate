@@ -5,7 +5,7 @@ export interface Env {
   VERTEX_REGION: string; // e.g. "us-central1"
 }
 
-const GEMINI_MODEL = "gemini-3.1-flash-lite";
+const GEMINI_MODEL = "gemini-3.5-flash-lite";
 
 // Limits
 const MAX_AUDIO_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB (base64 of ~3.75 MB raw, your largest is ~2.5 MB)
